@@ -31,11 +31,11 @@ const (
 
 // A BinaryBuilder is used to build a Binary array using the Append methods.
 type BinaryBuilder struct {
-	builder
+	builder							// 用于管理 validity bitmap
 
-	dtype   arrow.BinaryDataType
+	dtype   arrow.BinaryDataType	// 数据类型
 	offsets *int32BufferBuilder		// int32 类型 array
-	values  *byteBufferBuilder
+	values  *byteBufferBuilder		// byte 类型 array
 }
 
 func NewBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryBuilder {

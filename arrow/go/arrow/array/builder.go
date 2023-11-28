@@ -73,6 +73,8 @@ type Builder interface {
 }
 
 // builder provides common functionality for managing the validity bitmap (nulls) when building arrays.
+//
+// 用于管理 validity bitmap 。
 type builder struct {
 	refCount   int64				// 引用计数
 	mem        memory.Allocator		// 内存分配器
