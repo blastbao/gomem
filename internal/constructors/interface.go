@@ -15,16 +15,26 @@
 package constructors
 
 import (
+	"fmt"
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/gomem/gomem/internal/cast"
-	"fmt"
 )
 
 // NewInterfaceFromMem builds a new column from memory
 // valid is an optional array of booleans. If not specified, all values are valid.
-func NewInterfaceFromMem(mem memory.Allocator, name string, values interface{}, valid []bool) (array.Interface, *arrow.Field, error) {
+func NewInterfaceFromMem(
+	mem memory.Allocator,
+	name string,			// 列名
+	values interface{},		// 列值，是一个数组，包含 n 个 rows 的 col value
+	valid []bool,			//
+) (
+	array.Interface,		// array
+	*arrow.Field,			// {字段名，字段类型}
+	error,
+) {
+
 	var arr array.Interface
 
 	switch v := values.(type) {

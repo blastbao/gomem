@@ -90,11 +90,12 @@ func NewDataFrame(mem memory.Allocator, schema *arrow.Schema, arrs []array.Inter
 
 // NewDataFrameFromColumns returns a DataFrame interface.
 func NewDataFrameFromColumns(mem memory.Allocator, cols []array.Column) (*DataFrame, error) {
+	// 获取 Column 中 rows 总数。
 	var rows int64
 	if len(cols) > 0 {
 		rows = columnLen(cols[0])
 	}
-
+	// 构造一个 data frame
 	return NewDataFrameFromShape(mem, cols, rows)
 }
 
@@ -106,10 +107,12 @@ func NewDataFrameFromMem(mem memory.Allocator, dict Dict) (*DataFrame, error) {
 		fields = make([]arrow.Field, 0, len(dict))
 	)
 
+	// 提取 fields 名称
 	keys := make([]string, 0, len(dict))
 	for k := range dict {
 		keys = append(keys, k)
 	}
+
 	sort.Strings(keys)
 	for _, k := range keys {
 		v := dict[k]
@@ -118,7 +121,9 @@ func NewDataFrameFromMem(mem memory.Allocator, dict Dict) (*DataFrame, error) {
 			err = newInterfaceErr
 			break
 		}
+		// 保存 arrow array
 		arrs = append(arrs, arr)
+		// 保存 field<name,type>
 		fields = append(fields, *field)
 	}
 
@@ -127,22 +132,25 @@ func NewDataFrameFromMem(mem memory.Allocator, dict Dict) (*DataFrame, error) {
 			arrs[i].Release()
 		}
 	}()
-
 	if err != nil {
 		return nil, err
 	}
 
+	// 构造 schema
 	schema := arrow.NewSchema(fields, nil)
+	// 构造 data frame
 	return NewDataFrame(mem, schema, arrs)
 }
 
 // NewDataFrameFromShape is the same as NewDataFrameFromColumns only it allows you to specify the number
 // of rows in the DataFrame.
+//
+//
 func NewDataFrameFromShape(mem memory.Allocator, cols []array.Column, rows int64) (*DataFrame, error) {
 	df := &DataFrame{
 		refs:    1,
 		mem:     mem,
-		schema:  buildSchema(cols),
+		schema:  buildSchema(cols), // 基于 cols 构造 schema
 		cols:    cols,
 		rows:    rows,
 		mutator: NewMutator(mem),
@@ -155,6 +163,7 @@ func NewDataFrameFromShape(mem memory.Allocator, cols []array.Column, rows int64
 	if err := df.validate(); err != nil {
 		return nil, err
 	}
+
 
 	for i := range df.cols {
 		df.cols[i].Retain()
@@ -506,13 +515,16 @@ func (df *DataFrame) Release() {
 }
 
 func (df *DataFrame) validate() error {
+	// 字段数匹配
 	if len(df.Columns()) != len(df.schema.Fields()) {
 		return errors.New("dataframe validate(): table schema mismatch")
 	}
 	for i, col := range df.cols {
+		// 每个字段的类型匹配
 		if !col.Field().Equal(df.schema.Field(i)) {
 			return fmt.Errorf("dataframe validate(): column field %q is inconsistent with schema", col.Name())
 		}
+		// 每个字段上 rows 的数目匹配
 		colLen := columnLen(col)
 		if colLen < df.rows {
 			return fmt.Errorf("dataframe validate(): column %q expected length >= %d but got length %d", col.Name(), df.rows, colLen)
@@ -569,6 +581,8 @@ func buildSchema(cols []array.Column) *arrow.Schema {
 // columnLen returns the number of rows in the Column.
 // Because Arrow chunks arrays, you may encounter an overflow if
 // there are MaxInt64 rows, i.e. 9223372036854775807.
+//
+// columnLen 返回 Column 中 rows 总数。
 func columnLen(col array.Column) int64 {
 	var length int64
 	for _, chunk := range col.Data().Chunks() {

@@ -20,8 +20,8 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/gomem/gomem/pkg/metadata"
 	"github.com/gomem/gomem/pkg/iterator"
+	"github.com/gomem/gomem/pkg/metadata"
 )
 
 // ToJSON writes the DataFrame as JSON.
@@ -29,19 +29,24 @@ import (
 // This is equivaliant to Pandas to_json when you specify:
 // orient='records' and lines=True.
 func (df *DataFrame) ToJSON(w io.Writer) error {
+
+	// 提取字段名
 	schema := df.Schema()
 	fields := schema.Fields()
 	names := make([]string, len(fields))
 	for i, field := range fields {
 		names[i] = field.Name
 	}
+
 	// TODO(nickpoorman): remove this once Map type is supported in Arrow
 	// https://issues.apache.org/jira/browse/ARROW-5640
 	isMap := make([]bool, len(fields))
 	for i, field := range fields {
+		// 判断当前 field 是否是 map 类型
 		isMap[i] = metadata.OriginalMapTypeMetadataExists(field.Metadata)
 	}
 	fmt.Printf("isMap: %v\n", isMap)
+
 
 	// Iterate over the rows and extract one row at a time.
 	it := iterator.NewStepIteratorForColumns(df.Columns())
@@ -54,6 +59,7 @@ func (df *DataFrame) ToJSON(w io.Writer) error {
 		if err != nil {
 			return err
 		}
+
 		// At this point everything in stepValue is json.
 		// We just have to build the object from it.
 		jsonObj := make(map[string]interface{})

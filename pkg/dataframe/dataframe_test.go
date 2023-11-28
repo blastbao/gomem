@@ -35,6 +35,7 @@ const (
 )
 
 func buildRecords(pool *memory.CheckedAllocator, t *testing.T, last int32) ([]array.Record, *arrow.Schema) {
+
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: COL0NAME, Type: arrow.PrimitiveTypes.Int32},
@@ -462,11 +463,11 @@ func TestDrop(t *testing.T) {
 	defer pool.AssertSize(t, 0)
 
 	df, err := NewDataFrameFromMem(pool, Dict{
-		"col1-i32": []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		"col1-i32": []int32  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		"col2-f64": []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-		"col3-i32": []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		"col3-i32": []int32  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		"col4-f64": []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-		"col5-i32": []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		"col5-i32": []int32  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		"col6-f64": []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 	})
 	if err != nil {
@@ -482,7 +483,8 @@ func TestDrop(t *testing.T) {
 	defer df2.Release()
 
 	got := df2.Display(-1)
-	want := `rec[0]["col2-f64"]: [1 2 3 4 5 6 7 8 9 10]
+	want := `
+rec[0]["col2-f64"]: [1 2 3 4 5 6 7 8 9 10]
 rec[0]["col4-f64"]: [1 2 3 4 5 6 7 8 9 10]
 rec[0]["col5-i32"]: [1 2 3 4 5 6 7 8 9 10]
 `
@@ -497,7 +499,7 @@ func TestNewDataFrameFromMem(t *testing.T) {
 	defer pool.AssertSize(t, 0)
 
 	df, err := NewDataFrameFromMem(pool, Dict{
-		"col1-i32": []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		"col1-i32": []int32  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		"col2-f64": []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 	})
 	if err != nil {
@@ -506,7 +508,8 @@ func TestNewDataFrameFromMem(t *testing.T) {
 	defer df.Release()
 
 	got := df.Display(5)
-	want := `rec[0]["col1-i32"]: [1 2 3 4 5]
+	want := `
+rec[0]["col1-i32"]: [1 2 3 4 5]
 rec[0]["col2-f64"]: [1 2 3 4 5]
 rec[1]["col1-i32"]: [6 7 8 9 10]
 rec[1]["col2-f64"]: [6 7 8 9 10]
@@ -535,7 +538,8 @@ func TestNewColumnFromSparseMem(t *testing.T) {
 	defer df.Release()
 
 	got := df.Display(-1)
-	want := `rec[0]["sparse-col-i32"]: [1 (null) 0 (null) 3 (null) (null) (null) (null) (null)]
+	want := `
+rec[0]["sparse-col-i32"]: [1 (null) 0 (null) 3 (null) (null) (null) (null) (null)]
 `
 	if got != want {
 		t.Fatalf("\ngot=\n%v\nwant=\n%v", got, want)
@@ -547,7 +551,7 @@ func TestColumn(t *testing.T) {
 	defer pool.AssertSize(t, 0)
 
 	df, err := NewDataFrameFromMem(pool, Dict{
-		"col1-i32": []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		"col1-i32": []int32  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		"col2-f64": []float64{10, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 	})
 	if err != nil {
@@ -859,11 +863,12 @@ func TestRightJoinCase3(t *testing.T) {
 	defer joinedDf.Release()
 
 	got := joinedDf.Display(-1)
-	want := `rec[0]["A"]: [5 4 2 5 3 3]
+	want := `
+rec[0]["A"]:   [5 4 2 5 3 3]
 rec[0]["D_1"]: [5 0 0 0 0 0]
-rec[0]["F"]: [7 3 5 8 99 44]
-rec[0]["B"]: [6 (null) 4 6 3 3]
-rec[0]["C"]: [1.7 (null) 2.3 1.7 2.3 2.3]
+rec[0]["F"]:   [7 3 5 8 99 44]
+rec[0]["B"]:   [6 (null) 4 6 3 3]
+rec[0]["C"]:   [1.7 (null) 2.3 1.7 2.3 2.3]
 rec[0]["D_0"]: [5 (null) 1 5 0 0]
 `
 	if got != want {
@@ -1293,7 +1298,8 @@ func TestNewDataFrameFromTable(t *testing.T) {
 	defer df.Release()
 
 	got := df.Display(-1)
-	want := `rec[0]["f1-i32"]: [1 2 3 4 5 6 7 8 (null) 10]
+	want := `
+rec[0]["f1-i32"]: [1 2 3 4 5 6 7 8 (null) 10]
 rec[0]["f2-f64"]: [1 2 3 4 5 6 7 8 (null) 10]
 rec[1]["f1-i32"]: [11 12 13 14 15 16 17 18 19 20]
 rec[1]["f2-f64"]: [11 12 13 14 15 16 17 18 19 20]

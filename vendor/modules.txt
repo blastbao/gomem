@@ -1,0 +1,18 @@
+# github.com/apache/arrow/go/arrow v0.0.0-20200711183337-7b49cbc23f22
+## explicit
+github.com/apache/arrow/go/arrow
+github.com/apache/arrow/go/arrow/array
+github.com/apache/arrow/go/arrow/arrio
+github.com/apache/arrow/go/arrow/bitutil
+github.com/apache/arrow/go/arrow/decimal128
+github.com/apache/arrow/go/arrow/float16
+github.com/apache/arrow/go/arrow/internal/cpu
+github.com/apache/arrow/go/arrow/internal/debug
+github.com/apache/arrow/go/arrow/internal/flatbuf
+github.com/apache/arrow/go/arrow/ipc
+github.com/apache/arrow/go/arrow/memory
+# github.com/google/flatbuffers v1.11.0
+github.com/google/flatbuffers/go
+# golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
+golang.org/x/xerrors
+golang.org/x/xerrors/internal

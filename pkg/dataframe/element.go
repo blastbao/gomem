@@ -23,6 +23,7 @@ import (
 // Element is an interface for Elements within a Column.
 type Element interface {
 	// Compare methods
+
 	// Eq returns true if the left Element is equal to the right Element.
 	// When both are nil Eq returns false because nil actualy signifies "unknown"
 	// and you can't compare two things when you don't know what they are.
