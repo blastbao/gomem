@@ -375,7 +375,8 @@ func TestAppendColumn(t *testing.T) {
 	defer largerDf.Release()
 
 	got := largerDf.Display(-1)
-	want := `rec[0]["f1-i32"]: [1 2 3 4 5 6 7 8 (null) 10]
+	want := `
+rec[0]["f1-i32"]: [1 2 3 4 5 6 7 8 (null) 10]
 rec[0]["f2-f64"]: [1 2 3 4 5 6 7 8 (null) 10]
 rec[0]["col3-i32"]: [0 1 2 3 4 5 6 7 8 9]
 rec[1]["f1-i32"]: [11 12 13 14 15 16 17 18 19 20]
@@ -1206,7 +1207,7 @@ func TestApply(t *testing.T) {
 	defer pool.AssertSize(t, 0)
 
 	df, err := NewDataFrameFromMem(pool, Dict{
-		"col1-i32": []int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		"col1-i32": []int32  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		"col2-f64": []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 	})
 	if err != nil {
@@ -1221,7 +1222,8 @@ func TestApply(t *testing.T) {
 	defer df2.Release()
 
 	got := df2.Display(-1)
-	want := `rec[0]["col1-i32"]: [1 2 3 4 5 6 7 8 9 10]
+	want := `
+rec[0]["col1-i32"]: [ 1  2  3  4   5   6   7   8   9  10]
 rec[0]["col2-f64"]: [-2 -4 -6 -8 -10 -12 -14 -16 -18 -20]
 `
 	if got != want {

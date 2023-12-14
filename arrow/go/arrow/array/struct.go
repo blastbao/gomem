@@ -258,11 +258,9 @@ func (b *StructBuilder) newData() (data *Data) {
 	}
 
 	data = NewData(
-		b.dtype, b.length,
-		[]*memory.Buffer{
-			b.nullBitmap,
-			nil, // FIXME(sbinet)
-		},
+		b.dtype,
+		b.length,
+		[]*memory.Buffer{b.nullBitmap, nil},
 		fields,
 		b.nulls,
 		0,

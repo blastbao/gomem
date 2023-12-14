@@ -25,6 +25,7 @@ import (
 )
 
 // Mutator is a type that has some standard mutations.
+// 转换
 type Mutator struct {
 	// Almost all mutations will require setting up new memory as they create new a DataFrame.
 	// So we need to provide the ability to set the Allocator.
@@ -42,17 +43,23 @@ func NewMutator(mem memory.Allocator) *Mutator {
 type MutationFunc func(*DataFrame) (*DataFrame, error)
 
 // Select the given DataFrame columns by name.
+// 提取指定的 columns
 func (m *Mutator) Select(names ...string) MutationFunc {
 	return func(df *DataFrame) (*DataFrame, error) {
+		// 从 df 中提取指定 cols
 		cols := df.SelectColumns(names...)
+		// 由 cols 构造新的 df 并返回
 		return NewDataFrameFromShape(m.mem, cols, df.NumRows())
 	}
 }
 
 // Drop the given DataFrame columns by name.
+// 忽略指定的 columns
 func (m *Mutator) Drop(names ...string) MutationFunc {
 	return func(df *DataFrame) (*DataFrame, error) {
+		// 从 df 中提取出非 names 的 cols
 		cols := df.RejectColumns(names...)
+		// 由 cols 构造新的 df 并返回
 		return NewDataFrameFromShape(m.mem, cols, df.NumRows())
 	}
 }
@@ -60,12 +67,14 @@ func (m *Mutator) Drop(names ...string) MutationFunc {
 // Slice creates a new DataFrame consisting of rows[beg:end].
 func (m *Mutator) Slice(beg, end int64) MutationFunc {
 	return func(df *DataFrame) (*DataFrame, error) {
+		// 参数检查
 		if end > df.NumRows() || beg > end {
 			return nil, fmt.Errorf("mutation: index out of range")
 		}
 
 		dfCols := df.Columns()
 
+		// 对每个 col 进行 [beg, end) 的 rows 截断
 		cols := make([]array.Column, len(dfCols))
 		for i, col := range dfCols {
 			cols[i] = *col.NewSlice(beg, end)
@@ -77,6 +86,7 @@ func (m *Mutator) Slice(beg, end int64) MutationFunc {
 			}
 		}()
 
+		// 构造 df
 		rows := end - beg
 		return NewDataFrameFromShape(m.mem, cols, rows)
 	}
