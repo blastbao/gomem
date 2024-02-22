@@ -12,7 +12,9 @@ type Table struct {
 //
 // Fields which are deprecated are ignored by checking against the vtable's length.
 func (t *Table) Offset(vtableOffset VOffsetT) VOffsetT {
+	//
 	vtable := UOffsetT(SOffsetT(t.Pos) - t.GetSOffsetT(t.Pos))
+	//
 	if vtableOffset < t.GetVOffsetT(vtable) {
 		return t.GetVOffsetT(vtable + UOffsetT(vtableOffset))
 	}
@@ -20,12 +22,14 @@ func (t *Table) Offset(vtableOffset VOffsetT) VOffsetT {
 }
 
 // Indirect retrieves the relative offset stored at `offset`.
+// 间接寻址
 func (t *Table) Indirect(off UOffsetT) UOffsetT {
 	return off + GetUOffsetT(t.Bytes[off:])
 }
 
 // String gets a string from data stored inside the flatbuffer.
 func (t *Table) String(off UOffsetT) string {
+	// 根据 off 间接寻址定位到 []byte{} 数组，将其转换为 string 类型后返回。
 	b := t.ByteVector(off)
 	return byteSliceToString(b)
 }
@@ -44,7 +48,9 @@ func (t *Table) ByteVector(off UOffsetT) []byte {
 // VectorLen retrieves the length of the vector whose offset is stored at
 // "off" in this object.
 func (t *Table) VectorLen(off UOffsetT) int {
+	// ???
 	off += t.Pos
+
 	// 通过两跳定位到目标 offset
 	off += GetUOffsetT(t.Bytes[off:])
 	// 数据部分 data = length(4b) + content[0,...,length) ，这里直接读取 4B 的 length 返回
@@ -54,6 +60,7 @@ func (t *Table) VectorLen(off UOffsetT) int {
 // Vector retrieves the start of data of the vector whose offset is stored
 // at "off" in this object.
 func (t *Table) Vector(off UOffsetT) UOffsetT {
+	// ???
 	off += t.Pos
 
 	// 通过两跳定位到目标 offset

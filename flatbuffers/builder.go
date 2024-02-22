@@ -68,10 +68,21 @@ func (b *Builder) FinishedBytes() []byte {
 	return b.Bytes[b.Head():]
 }
 
+// StartObject 作用是初始化一个新对象的写入过程，包括设置嵌套状态、准备 vtable ，并记录对象的结束偏移量。
+// StartObject 的参数 numfields 表示对象中的字段（fields）数量；
+//
+// vtable 是 FlatBuffers 中用于描述对象布局的虚拟表，用于支持对象的跨平台访问。
+//
+// 首先，判断当前 vtable 的容量是否小于 numfields 或者是否为 nil ：
+//	如果是，则重新分配容量为 numfields 的 vtable；
+//	如果否，则保留 vtable 的容量，但将长度限制为 numfields（即截断 vtable 的长度为 numfields ）；然后，将 vtable 中的每个元素设置为 0 ，表示当前字段的偏移量。
+//
+// 最后，记录当前对象的结束偏移量
+//
 // StartObject initializes bookkeeping for writing a new object.
 func (b *Builder) StartObject(numfields int) {
-	b.assertNotNested()
-	b.nested = true
+	b.assertNotNested() // 确保当前没有嵌套写入操作
+	b.nested = true     // 设置当前处于嵌套写入操作
 
 	// use 32-bit offsets so that arithmetic doesn't overflow.
 	if cap(b.vtable) < numfields || b.vtable == nil {
@@ -85,6 +96,11 @@ func (b *Builder) StartObject(numfields int) {
 
 	b.objectEnd = b.Offset()
 }
+
+//
+//
+//
+//
 
 // WriteVtable serializes the vtable for the current object, if applicable.
 //
@@ -171,8 +187,7 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 		// Next, write the offset to the new vtable in the
 		// already-allocated SOffsetT at the beginning of this object:
 		objectStart := SOffsetT(len(b.Bytes)) - SOffsetT(objectOffset)
-		WriteSOffsetT(b.Bytes[objectStart:],
-			SOffsetT(b.Offset())-SOffsetT(objectOffset))
+		WriteSOffsetT(b.Bytes[objectStart:], SOffsetT(b.Offset())-SOffsetT(objectOffset))
 
 		// Finally, store this vtable in memory for future
 		// deduplication:
@@ -185,8 +200,7 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 
 		// Write the offset to the found vtable in the
 		// already-allocated SOffsetT at the beginning of this object:
-		WriteSOffsetT(b.Bytes[b.head:],
-			SOffsetT(existingVtable)-SOffsetT(objectOffset))
+		WriteSOffsetT(b.Bytes[b.head:], SOffsetT(existingVtable)-SOffsetT(objectOffset))
 	}
 
 	b.vtable = b.vtable[:0]
@@ -234,6 +248,7 @@ func (b *Builder) Head() UOffsetT {
 }
 
 // Offset relative to the end of the buffer.
+// 反映当前 bytebuffer 中存储数据的长度，也能表明当前对象相对于 bytebuffer 结尾的偏移
 func (b *Builder) Offset() UOffsetT {
 	return UOffsetT(len(b.Bytes)) - b.head
 }
@@ -245,13 +260,42 @@ func (b *Builder) Pad(n int) {
 	}
 }
 
+// Prep 用于预留空间，该空间足以容纳 size + additionalBytes 且按照 size 对齐。
+//
+// `Prep` 该函数接受两个参数，`size`表示要写入的元素的大小，`additionalBytes` 表示已经写入的额外字节数量。
+// 如果只需要进行对齐操作而不需要写入额外字节，`additionalBytes` 参数将为 0 。
+//
+// 函数执行的逻辑如下：
+//	1. 首先，记录当前已对齐的最大大小，即若要对齐`size`，所需的大小。
+//	2. 计算在已经写入了`additionalBytes`字节后，使`size`能够正常对齐所需的对齐大小。具体的计算方式是找到一个对齐大小，使得对齐大小加上已经写入的字节数后，加1取反再取与`size - 1`的与操作结果为0。这样可以确保对齐大小加上已经写入的字节数后，再向下取整能够被`size`整除。
+//	3. 如果缓冲区的头指针`head`加上对齐大小、`size`和`additionalBytes`后的结果小于等于缓冲区的长度，则表示缓冲区的空间不足以写入新的数据，需要进行动态扩容操作。
+//	4. 调用`growByteBuffer`函数进行缓冲区扩容，并更新`head`指针为扩容后的长度减去旧的缓冲区长度。
+//	5. 调用`Pad`函数进行对齐操作，将缓冲区的头指针移动到对齐的位置。
+//
+// 这个函数的作用是为要写入的元素做准备，包括计算对齐大小、扩容缓冲区和进行对齐操作，以确保数据写入时能够满足对齐要求，并且缓冲区具有足够的空间来存储数据。
+// 这样可以避免数据的错位和内存越界访问。
+
+// 该段代码是 FlatBuffers 中的 `Builder` 结构的 `Prep` 方法。它用于在写入 `additionalBytes` 字节后，准备写入大小为 `size` 的元素。
+//
+//`Prep` 方法的功能是为要写入的元素做对齐准备。当写入某个元素时，可能需要对齐以确保各个部分正确对齐。例如，如果要写入一个字符串，在字符串数据之前需要对齐整数长度字段的对齐方式（使用 `SizeInt32`）。这里的 `additionalBytes` 参数表示已经写入的额外字节数。如果只需要对齐，则 `additionalBytes` 为 0。
+//
+//该方法首先比较 `size` 和 `minalign`（用于追踪之前对齐的最大值）的大小，将较大的值赋给 `minalign`。这样，`minalign` 就会记录下要写入元素的最大对齐值。
+//
+//接下来，根据已写入的字节数和要写入的元素大小计算所需的对齐大小。`alignSize` 的计算方式是，取反后 `len(b.Bytes) - int(b.Head()) + additionalBytes`，然后加1，再与 `size - 1` 进行按位与操作。
+//
+//然后，检查是否需要重新分配缓冲区以适应写入元素所需的空间。通过比较 `b.head` 和 `alignSize + size + additionalBytes` 的大小，判断当前缓冲区的剩余空间是否足够。如果不足，则调用 `growByteBuffer` 方法扩展缓冲区。
+//
+//最后，调用 `Pad` 方法，根据对齐大小 `alignSize` 进行填充，确保写入位置合适的对齐。
+//
+//总结来说，`Prep` 方法的功能是根据给定大小和已写入的额外字节数，在适当的位置进行对齐预处理，并根据需要对缓冲区进行重新分配以确保写入元素的空间足够。
+
+//
+
 // Prep prepares to write an element of `size` after `additional_bytes`
 // have been written, e.g. if you write a string, you need to align such
 // the int length field is aligned to SizeInt32, and the string data follows it
 // directly.
 // If all you need to do is align, `additionalBytes` will be 0.
-//
-// Prep 用于预留空间，该空间足以容纳 size + additionalBytes 且按照 size 对齐。
 func (b *Builder) Prep(size, additionalBytes int) {
 	// Track the biggest thing we've ever aligned to.
 	if size > b.minalign {
@@ -282,13 +326,20 @@ func (b *Builder) PrependSOffsetT(off SOffsetT) {
 	b.PlaceSOffsetT(off2)
 }
 
+// 给定一个 offset1，通过当前 offset 间接定位到 offset1 的方式是，在 offset 处存储 |offset - offset1| 的偏移量。
+// 注意，因为偏移量本身大小 4B ，所以需要额外加 4B 的相对偏移。
+
 // PrependUOffsetT prepends an UOffsetT, relative to where it will be written.
 func (b *Builder) PrependUOffsetT(off UOffsetT) {
+	// 确保 buffer 足以容纳一个 UOffsetT 类型对象
 	b.Prep(SizeUOffsetT, 0) // Ensure alignment is already done.
+	// 合法性校验
 	if !(off <= b.Offset()) {
 		panic("unreachable: off <= b.Offset()")
 	}
+	// 计算相对偏移
 	off2 := b.Offset() - off + UOffsetT(SizeUOffsetT)
+	// 将相对偏移存入 b.Bytes[] 中
 	b.PlaceUOffsetT(off2)
 }
 
@@ -300,38 +351,44 @@ func (b *Builder) PrependUOffsetT(off UOffsetT) {
 func (b *Builder) StartVector(elemSize, numElems, alignment int) UOffsetT {
 	b.assertNotNested()
 	b.nested = true
+
 	b.Prep(SizeUint32, elemSize*numElems)
 	b.Prep(alignment, elemSize*numElems) // Just in case alignment > int.
 	return b.Offset()
 }
 
 // EndVector writes data necessary to finish vector construction.
+// 结束 vector 的创建，同时会将此 vector 的长度信息写入，同时返回当前 vector 相对于 ByteBuffer 结尾的偏移
 func (b *Builder) EndVector(vectorNumElems int) UOffsetT {
 	b.assertNested()
 
 	// we already made space for this, so write without PrependUint32
-	b.PlaceUOffsetT(UOffsetT(vectorNumElems))
+	b.PlaceUOffsetT(UOffsetT(vectorNumElems)) // 保存 vector 的成员个数，不是存储空间长度
 
 	b.nested = false
-	return b.Offset()
+	return b.Offset() // 表明当前对象相对于 bytebuffer 结尾的偏移
 }
 
+// FlatBuffers 在实现字符串写入的时候将字符串的编码数组当做了一维的 vector 来实现，
+// startVector 函数是写入前的初始化，并且在写入编码数组之前我们又看到了先将 space 往前移动数组长度的距离，然后再写入；
+// 写入完成后调用 endVector 进行收尾，endVector 再将 vector 的成员数量，在这里就是字符串数组的长度写入；
+// 然后调用 offset 返回写入数据的起点。
+
 // CreateString writes a null-terminated string as a vector.
-//
-//
+// 创建字符串，从左到右依次是[字符串长度，字符串数据，结尾"0"]
 func (b *Builder) CreateString(s string) UOffsetT {
 	b.assertNotNested()
 	b.nested = true
 
 	b.Prep(int(SizeUOffsetT), (len(s)+1)*SizeByte)
-	b.PlaceByte(0)	// string 的末尾是 null 结束符，要加一个字节的 0
+	b.PlaceByte(0) // string 的末尾是 null 结束符，要加一个字节的 0
 
-	l := UOffsetT(len(s))				//
+	l := UOffsetT(len(s)) // string 的字符长度
 
-	b.head -= l							//
-	copy(b.Bytes[b.head:b.head+l], s)	// 把字符串 s 复制到相应的 offset 中
+	b.head -= l                       // 移动 head ，腾出 l 个字符的长度
+	copy(b.Bytes[b.head:b.head+l], s) // 把字符串 s 复制到相应的 offset 中
 
-	return b.EndVector(len(s))			//
+	return b.EndVector(len(s)) // 把字符串 s 的长度（不含末尾 0 ）写入 b.Bytes[b.Offset():] 中，返回 b.Offset() 。
 }
 
 // CreateByteString writes a byte slice as a string (null-terminated).
@@ -475,12 +532,29 @@ func (b *Builder) PrependInt8Slot(o int, x, d int8) {
 	}
 }
 
+// PrependInt16Slot 将一个 `int16` 类型的值添加到对象的 vtable 槽位 `o` 前面。
+//
+// PrependInt16Slot 接受三个参数：
+//	- `o` 表示 vtable 的槽位
+//  - `x` 表示要添加的值
+//  - `d` 表示默认值
+//
+// 函数执行的逻辑如下：
+//	1. 首先，判断 `x` 是否等于默认值 `d` 。
+//	2. 如果 `x` 不等于 `d` ，则调用 `PrependInt16` 函数将 `x` 插入到对象数据缓冲区的前面。
+//	3. 调用 `Slot(o)` 函数将槽位 `o` 设置为当前缓冲区中起始偏移量，从而记录这个字段在缓冲区中的位置。
+//
+// 这个函数的作用是将一个 `int16` 类型的字段添加到对象中，如果字段的值和默认值不相等，则将字段的值写入缓冲区，并设置对应的 vtable 槽位。
+// 如果字段的值和默认值相等，则不写入数据，而是将对应的 vtable 槽位设置为0。这样可以节省空间，避免写入不必要的数据。
+
 // PrependInt16Slot prepends a int16 onto the object at vtable slot `o`.
 // If value `x` equals default `d`, then the slot will be set to zero and no
 // other data will be written.
 func (b *Builder) PrependInt16Slot(o int, x, d int16) {
 	if x != d {
+		// 把 x 插入到 b.Bytes[b.Offset():] 中；
 		b.PrependInt16(x)
+		// 把 b.Offset() 保存到 b.vtable[o] 上，即在 vtable 中保存第 o 字段的偏移量；
 		b.Slot(o)
 	}
 }
@@ -547,6 +621,8 @@ func (b *Builder) PrependStructSlot(voffset int, x, d UOffsetT) {
 		b.Slot(voffset)
 	}
 }
+
+// vtable 是用于存储和索引对象字段偏移量的表，使用 `Slot` 函数可以将字段的偏移量写入到 vtable 中，以便后续能够正确地访问和读取字段值。
 
 // Slot sets the vtable key `voffset` to the current location in the buffer.
 func (b *Builder) Slot(slotnum int) {
@@ -641,6 +717,17 @@ func (b *Builder) PrependInt8(x int8) {
 	b.Prep(SizeInt8, 0)
 	b.PlaceInt8(x)
 }
+
+// PrependInt16 功能是将一个 int16 类型的值插入到 Builder 缓冲区的前面。
+// PrependInt16 接受一个参数 x 表示要插入的 int16 值。
+//
+// 函数执行的逻辑如下：
+//	首先，调用 Prep 函数来为 int16 值预留空间。
+//	Prep 函数接受两个参数，SizeInt16 表示int16值的大小（在FlatBuffers中为2字节），0 表示对齐方式（不进行对齐）。
+//	Prep 函数会根据这两个参数来确定是否需要扩展缓冲区的大小，并调整缓冲区中的位置指针。
+//
+//	然后，调用 PlaceInt16 函数将 int16 值写入到缓冲区中。
+//	PlaceInt16 函数接受一个 int16 值作为参数，将该值写入到缓冲区的当前位置，并根据对齐方式对缓冲区进行相应的调整。
 
 // PrependInt16 prepends a int16 to the Builder buffer.
 // Aligns and checks for space.
@@ -761,24 +848,24 @@ func (b *Builder) PlaceFloat64(x float64) {
 
 // PlaceByte prepends a byte to the Builder, without checking for space.
 func (b *Builder) PlaceByte(x byte) {
-	b.head -= UOffsetT(SizeByte)
-	WriteByte(b.Bytes[b.head:], x)
+	b.head -= UOffsetT(SizeByte)   // 向前挪动 1 个位置，腾出一个 byte 的空间
+	WriteByte(b.Bytes[b.head:], x) // 存入 1 byte 的 x
 }
 
 // PlaceVOffsetT prepends a VOffsetT to the Builder, without checking for space.
 func (b *Builder) PlaceVOffsetT(x VOffsetT) {
-	b.head -= UOffsetT(SizeVOffsetT)
-	WriteVOffsetT(b.Bytes[b.head:], x)
+	b.head -= UOffsetT(SizeVOffsetT)   // 向前挪动 2 个位置，腾出一个 VOffsetT 的空间
+	WriteVOffsetT(b.Bytes[b.head:], x) // 存入 2 byte 的 x
 }
 
 // PlaceSOffsetT prepends a SOffsetT to the Builder, without checking for space.
 func (b *Builder) PlaceSOffsetT(x SOffsetT) {
-	b.head -= UOffsetT(SizeSOffsetT)
-	WriteSOffsetT(b.Bytes[b.head:], x)
+	b.head -= UOffsetT(SizeSOffsetT)   // 向前挪动 4 个位置，腾出一个 SOffsetT 的空间
+	WriteSOffsetT(b.Bytes[b.head:], x) // 存入 4 byte 的 x
 }
 
 // PlaceUOffsetT prepends a UOffsetT to the Builder, without checking for space.
 func (b *Builder) PlaceUOffsetT(x UOffsetT) {
-	b.head -= UOffsetT(SizeUOffsetT)
-	WriteUOffsetT(b.Bytes[b.head:], x)
+	b.head -= UOffsetT(SizeUOffsetT)   // 向前挪动 4 个位置，腾出一个 UOffsetT 的空间
+	WriteUOffsetT(b.Bytes[b.head:], x) // 存入 4 byte 的 x
 }

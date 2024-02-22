@@ -2,7 +2,6 @@
 // objects.
 package flatbuffers
 
-
 // 简单来说 FlatBuffers 就是把对象数据，保存在一个一维的数组中，将数据都缓存在一个 ByteBuffer 中，每个对象在数组中被分为两部分。
 // 	元数据部分：负责存放索引。
 // 	真实数据部分：存放实际的值。
@@ -16,7 +15,6 @@ package flatbuffers
 //	小端模式。FlatBuffers 对各种基本数据的存储都是按照小端模式来进行的，因为这种模式目前和大部分处理器的存储模式是一致的，可以加快数据读写的数据。
 //	写入数据方向和读取数据方向不同。
 
-
 // FlatBuffers 向 ByteBuffer 中写入数据的顺序是从 ByteBuffer 的尾部向头部填充，由于这种增长方向和 ByteBuffer 默认的增长方向不同，
 // 因此 FlatBuffers 在向 ByteBuffer 中写入数据的时候就不能依赖 ByteBuffer 的 position 来标记有效数据位置，
 // 而是自己维护了一个 space 变量来指明有效数据的位置，在分析 FlatBuffersBuilder 的时候要特别注意这个变量的增长特点。
@@ -24,7 +22,6 @@ package flatbuffers
 // 但是，和数据的写入方向不同的是，FlatBuffers 从 ByteBuffer 中解析数据的时候又是按照 ByteBuffer 正常的顺序来进行的。
 // FlatBuffers 这样组织数据存储的好处是，在从左到右解析数据的时候，能够保证最先读取到的就是整个 ByteBuffer 的概要信息
 //（例如 Table 类型的 vtable 字段），方便解析。
-
 
 // table 是 FlatBuffers 的基石，为了解决数据结构变更的问题，table 通过 vtable 间接访问字段。
 // 每个 table 都带有一个 vtable（可以在具有相同布局的多个 table 之间共享），并且包含存储此特定类型 vtable 实例的字段的信息。
@@ -42,4 +39,3 @@ package flatbuffers
 // 注意 Table 中的成员如果是简单类型或者 Struct 类型，那么这个成员的具体数值就直接存储在 table_data 中；
 // 如果成员是复杂类型，那么 table_data 中存储的只是这个成员数据相对于写入地址的偏移，
 // 也就是说要获得这个成员的真正数据还要取出 table_data 中的数据进行一次相对寻址。
-
