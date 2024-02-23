@@ -21,6 +21,11 @@ package flatbuffers
 //
 // 一般情况下，minalign 保持默认值 4 就可以，只有在内存很宝贵或者性能极为关键时，才需要考虑调整这个值，根据实际需求选择合适的值,平衡内存和性能的 tradeoff 。
 
+// vtable 的元素都是 VOffsetT 类型，它是 uint16 。
+// 第一个元素是 vtable 的大小（以字节为单位），包括自身。
+// 第二个元素是对象的大小，以字节为单位（包括 vtable 偏移量）。这个大小可以用于流式传输，知道要读取多少字节才能访问对象的所有内联 inline 字段。
+// 第三个元素开始是 N 个偏移量，其中 N 是编译构建此 buffer 的代码编译时（因此，表的大小为 N + 2）时在 schema 中声明的字段数量(包括 deprecated 字段)。每个以 SizeVOffsetT 字节为宽度。
+
 // Builder is a state machine for creating FlatBuffer objects.
 // Use a Builder to construct object(s) starting from leaf nodes.
 //
@@ -32,9 +37,9 @@ type Builder struct {
 	Bytes []byte
 
 	minalign  int
-	vtable    []UOffsetT
+	vtable    []UOffsetT // 存储当前正在构建的对象的 VTable 。当使用 Builder 构建一个对象时，vtable 会被填充并最终添加到 vtables 中。这样，在序列化时，可以通过索引来引用正确的 VTable 。
 	objectEnd UOffsetT
-	vtables   []UOffsetT
+	vtables   []UOffsetT // 存储 FlatBuffers 对象中的所有 VTables 。每个 VTable 都表示一个对象的字段布局和访问信息。
 	head      UOffsetT
 	nested    bool
 	finished  bool
@@ -145,12 +150,17 @@ func (b *Builder) StartObject(numfields int) {
 func (b *Builder) WriteVtable() (n UOffsetT) {
 	// Prepend a zero scalar to the object. Later in this function we'll
 	// write an offset here that points to the object's vtable:
+	//
+	// Object 的开头是 4B 的 SOffsetT 偏移量，指向关联的 vtable 。
+	// 这里属于预写入(0值)，后面在写完 vtable 后会覆盖写入真正的偏移量。
 	b.PrependSOffsetT(0)
 
-	objectOffset := b.Offset()
+	objectOffset := b.Offset() // 当前 object 的 offset ，
 	existingVtable := UOffsetT(0)
 
 	// Trim vtable of trailing zeroes.
+	//
+	// 去掉末尾 0
 	i := len(b.vtable) - 1
 	for ; i >= 0 && b.vtable[i] == 0; i-- {
 	}
@@ -161,8 +171,12 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 	// BenchmarkVtableDeduplication for a case in which this heuristic
 	// saves about 30% of the time used in writing objects with duplicate
 	// tables.
+	//
+	// 从 vtables 中逆向搜索已经存储过的 vtable ，如果存在相同的且已经存储过的 vtable ，直接找到它，索引指向它即可；
+	// 可以查看 BenchmarkVtableDeduplication 的测试结果，通过索引指向相同的 vtable，而不是新建一个，这种做法可以提高 30% 性能；
 	for i := len(b.vtables) - 1; i >= 0; i-- {
 		// Find the other vtable, which is associated with `i`:
+		// 选定一个 vtable
 		vt2Offset := b.vtables[i]
 		vt2Start := len(b.Bytes) - int(vt2Offset)
 		vt2Len := GetVOffsetT(b.Bytes[vt2Start:])
@@ -690,6 +704,20 @@ func (b *Builder) Finish(rootTable UOffsetT) {
 	b.PrependUOffsetT(rootTable)
 	b.finished = true
 }
+
+// 这段代码实现了一个函数 `vtableEqual`，用于比较一个未写入的 VTable 和一个已写入的 VTable 是否相等。
+//
+// 该函数的参数如下：
+//	- `a` 是一个未写入的 VTable，类型为 `[]UOffsetT`。它是一个存储偏移量的整数切片，表示各个字段在对象中的布局和访问信息。
+//	- `objectStart` 是对象的起始偏移量，类型为 `UOffsetT`。它表示未写入的 VTable 对应的对象的起始位置。
+//	- `b` 是一个已写入的 VTable 对应的字节切片，类型为 `[]byte`。它包含了已写入的 VTable 内容。
+//
+// 函数首先会通过比较两个切片的长度来判断它们是否相等。如果两个切片长度不相等，说明它们不可能表示相同的 VTable，直接返回 `false`。
+// 接下来，函数利用一个循环遍历未写入的 VTable 的每个元素。对于每个元素，它首先通过 `GetVOffsetT` 函数从已写入的 VTable 字节切片中获取相应的值。
+// 然后，它会检查获取到的值是否为默认值（0），以及未写入的 VTable 对应的元素是否也为默认值（0）。如果两者都为默认值，该元素的比较被跳过。如果其中有一个不是默认值，或者两者都不是默认值但值不相等，说明两个 VTable 不相等，函数返回 `false`。
+// 最后，如果所有元素的比较都相等，函数返回 `true`，表示未写入的 VTable 和已写入的 VTable 相等。
+//
+// 这个函数的作用是用于检查两个 VTable 是否一致，从而可以确定一个对象是否已经写入正确的 VTable，并且可以在需要时进行比较和验证。
 
 // vtableEqual compares an unwritten vtable to a written vtable.
 func vtableEqual(a []UOffsetT, objectStart UOffsetT, b []byte) bool {
