@@ -1,5 +1,26 @@
 package flatbuffers
 
+// FlatBuffers 中，minalign（也称为对齐因子，表示内存对齐）用于指定表中字段的内存对齐方式。
+// FlatBuffers 使用自定义二进制格式来表示数据，通过将数据结构组织成表，可以在不进行任何解析的情况下进行直接访问。
+// minalign 用于确保字段在内存中的正确对齐，以提高访问效率。
+//
+// 由于计算机需要将数据从内存中读取到寄存器中进行处理，因此数据在内存中的存储位置对性能至关重要。
+// 对齐方式可以确保多字节字段的地址始终位于其大小的倍数上，以便有效地读取和写入数据。
+//
+// minalign 指定了字段的最小对齐方式，以字节为单位。
+// 例如，minalign=1 表示字段可以在任何字节边界上对齐，而 minalign=4 表示字段需要在4字节边界上对齐。
+// 较小的对齐方式可以节省内存空间，但会增加访问成本，因为计算机需要执行额外的计算来访问不对齐的字段。
+//
+// 总之，minalign 用于控制 FlatBuffers 中字段的内存对齐方式，以平衡内存使用和访问效率。
+
+// 例如，如果一个属性的大小为 3 字节，并且 minalign 设置为 4，那么该属性应该使用 4 字节的存储空间，并且要在前面添加一个额外的字节来完成对齐。
+// 这样做可以提高访问速度和存储空间的使用效率。
+//
+// 设置较小的 minalign 可以减少内存消耗, 但可能导致性能下降。
+// 设置较大的 minalign 可以提高访问速度, 但同时也会增加内存占用。
+//
+// 一般情况下，minalign 保持默认值 4 就可以，只有在内存很宝贵或者性能极为关键时，才需要考虑调整这个值，根据实际需求选择合适的值,平衡内存和性能的 tradeoff 。
+
 // Builder is a state machine for creating FlatBuffer objects.
 // Use a Builder to construct object(s) starting from leaf nodes.
 //
@@ -277,19 +298,30 @@ func (b *Builder) Pad(n int) {
 
 // 该段代码是 FlatBuffers 中的 `Builder` 结构的 `Prep` 方法。它用于在写入 `additionalBytes` 字节后，准备写入大小为 `size` 的元素。
 //
-//`Prep` 方法的功能是为要写入的元素做对齐准备。当写入某个元素时，可能需要对齐以确保各个部分正确对齐。例如，如果要写入一个字符串，在字符串数据之前需要对齐整数长度字段的对齐方式（使用 `SizeInt32`）。这里的 `additionalBytes` 参数表示已经写入的额外字节数。如果只需要对齐，则 `additionalBytes` 为 0。
+// `Prep` 方法的功能是为要写入的元素做对齐准备。
+// 当写入某个元素时，可能需要对齐以确保各个部分正确对齐。例如，如果要写入一个字符串，在字符串数据之前需要对齐整数长度字段的对齐方式（使用 `SizeInt32`）。
+// 这里的 `additionalBytes` 参数表示已经写入的额外字节数。如果只需要对齐，则 `additionalBytes` 为 0。
 //
-//该方法首先比较 `size` 和 `minalign`（用于追踪之前对齐的最大值）的大小，将较大的值赋给 `minalign`。这样，`minalign` 就会记录下要写入元素的最大对齐值。
+// 该方法首先比较 `size` 和 `minalign`（用于追踪之前对齐的最大值）的大小，将较大的值赋给 `minalign`。
+// 这样，`minalign` 就会记录下要写入元素的最大对齐值。
 //
-//接下来，根据已写入的字节数和要写入的元素大小计算所需的对齐大小。`alignSize` 的计算方式是，取反后 `len(b.Bytes) - int(b.Head()) + additionalBytes`，然后加1，再与 `size - 1` 进行按位与操作。
+// 接下来，根据已写入的字节数和要写入的元素大小计算所需的对齐大小。
+//`alignSize` 的计算方式是，取反后 `len(b.Bytes) - int(b.Head()) + additionalBytes`，然后加1，再与 `size - 1` 进行按位与操作。
 //
-//然后，检查是否需要重新分配缓冲区以适应写入元素所需的空间。通过比较 `b.head` 和 `alignSize + size + additionalBytes` 的大小，判断当前缓冲区的剩余空间是否足够。如果不足，则调用 `growByteBuffer` 方法扩展缓冲区。
+// 然后，检查是否需要重新分配缓冲区以适应写入元素所需的空间。
+// 通过比较 `b.head` 和 `alignSize + size + additionalBytes` 的大小，判断当前缓冲区的剩余空间是否足够。
+// 如果不足，则调用 `growByteBuffer` 方法扩展缓冲区。
 //
-//最后，调用 `Pad` 方法，根据对齐大小 `alignSize` 进行填充，确保写入位置合适的对齐。
+// 最后，调用 `Pad` 方法，根据对齐大小 `alignSize` 进行填充，确保写入位置合适的对齐。
 //
-//总结来说，`Prep` 方法的功能是根据给定大小和已写入的额外字节数，在适当的位置进行对齐预处理，并根据需要对缓冲区进行重新分配以确保写入元素的空间足够。
+// 总结来说，`Prep` 方法的功能是根据给定大小和已写入的额外字节数，在适当的位置进行对齐预处理，并根据需要对缓冲区进行重新分配以确保写入元素的空间足够。
 
+// [重要]
+// Prep() 函数的第一个入参是 size，这里的 size 是字节单位，有多少个字节大小，这里的 size 就是多少。
+// 例如 SizeUint8 = 1、SizeUint16 = 2、SizeUint32 = 4、SizeUint64 = 8。其他类型以此类推。
+// 比较特殊的 3 个 offset，大小也是固定的，SOffsetT int32，它的 size = 4；UOffsetT uint32，它的 size = 4；VOffsetT uint16，它的 size = 2。
 //
+// Prep() 函数能确保分配 additional_bytes 个字节之后的 offset 是 size 的整数倍，过程中可能需要对齐填充，如果有需要还会 Reallocate buffer 。
 
 // Prep prepares to write an element of `size` after `additional_bytes`
 // have been written, e.g. if you write a string, you need to align such
@@ -308,11 +340,16 @@ func (b *Builder) Prep(size, additionalBytes int) {
 	alignSize &= (size - 1)
 
 	// Reallocate the buffer if needed:
+	//
+	// b.head 代表当前 buffer 的剩余空间，如果少于待添加的数据量，需要扩容；
 	for int(b.head) <= alignSize+size+additionalBytes {
 		oldBufSize := len(b.Bytes)
 		b.growByteBuffer()
+		// 扩容的 bytes size = len(b.Bytes) - oldBufSize ，把 b.head 执行向后移动，腾出空间
 		b.head += UOffsetT(len(b.Bytes) - oldBufSize)
 	}
+
+	// 填入用于对齐的 0 字节
 	b.Pad(alignSize)
 }
 
