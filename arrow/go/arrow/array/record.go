@@ -106,8 +106,7 @@ func (rs *simpleRecords) Next() bool {
 	return true
 }
 
-// Record is a collection of equal-length arrays
-// matching a particular Schema.
+// Record is a collection of equal-length arrays matching a particular Schema.
 type Record interface {
 	Release()
 	Retain()
@@ -136,8 +135,8 @@ type simpleRecord struct {
 
 	schema *arrow.Schema
 
-	rows int64				//
-	arrs []Interface		// columns
+	rows int64       //
+	arrs []Interface // columns
 }
 
 // NewRecord returns a basic, non-lazy in-memory record batch.

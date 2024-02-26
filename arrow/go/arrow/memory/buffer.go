@@ -38,7 +38,11 @@ func NewBufferBytes(data []byte) *Buffer {
 
 // NewResizableBuffer creates a mutable, resizable buffer with an Allocator for managing memory.
 func NewResizableBuffer(mem Allocator) *Buffer {
-	return &Buffer{refCount: 1, mutable: true, mem: mem}
+	return &Buffer{
+		refCount: 1,
+		mutable:  true,
+		mem:      mem,
+	}
 }
 
 // Retain increases the reference count by 1.
@@ -83,6 +87,9 @@ func (b *Buffer) Len() int { return b.length }
 func (b *Buffer) Cap() int { return len(b.buf) }
 
 // Reserve reserves the provided amount of capacity for the buffer.
+//
+// 如果 capacity 小于等于 len(b.buf) ，不做处理；
+// 如果 capacity 大于 len(b.buf) ，新建 buffer 并将 b.buf 拷贝进去，b.length 值不变；
 func (b *Buffer) Reserve(capacity int) {
 	if capacity > len(b.buf) {
 		newCap := roundUpToMultipleOf64(capacity)
@@ -105,12 +112,16 @@ func (b *Buffer) ResizeNoShrink(newSize int) {
 	b.resize(newSize, false)
 }
 
+// 调整 Buffer 大小
 func (b *Buffer) resize(newSize int, shrink bool) {
+	// 如果 shrink 为 false ，直接 reserve ，reserve 不会减少 buffer ;
+	// 如果 shrink 为 true 但是 newSize 比 b.length 大，直接 reserve ，reserve 不会减少 buffer ;
 	if !shrink || newSize > b.length {
 		b.Reserve(newSize)
 	} else {
-		// Buffer is not growing, so shrink to the requested size without
-		// excess space.
+		// 如果 shrink 为 true 且 newSize 比 b.length 小，需要缩容。
+
+		// Buffer is not growing, so shrink to the requested size without excess space.
 		newCap := roundUpToMultipleOf64(newSize)
 		if len(b.buf) != newCap {
 			if newSize == 0 {
@@ -121,5 +132,5 @@ func (b *Buffer) resize(newSize int, shrink bool) {
 			}
 		}
 	}
-	b.length = newSize
+	b.length = newSize // 更新 length
 }

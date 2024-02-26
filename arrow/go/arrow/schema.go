@@ -22,9 +22,6 @@ import (
 	"strings"
 )
 
-
-
-
 type Metadata struct {
 	keys   []string
 	values []string
@@ -112,9 +109,9 @@ func (md Metadata) clone() Metadata {
 //
 // Schema 包含一组字段，描述了一个表的若干列、或者一组记录。
 type Schema struct {
-	fields []Field				// 字段列表
-	index  map[string][]int		// 字段名 => 下标数组 ??? 意味着存在多个同名字段 ...
-	meta   Metadata
+	fields []Field          // 字段列表
+	index  map[string][]int // 字段名 => 下标数组 ??? 意味着存在多个同名字段 ...
+	meta   Metadata         //
 }
 
 // NewSchema returns a new Schema value from the slice of fields and metadata.
@@ -182,16 +179,16 @@ func (sc *Schema) Equal(o *Schema) bool {
 	return true
 }
 
-func (s *Schema) String() string {
+func (sc *Schema) String() string {
 	o := new(strings.Builder)
-	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(s.Fields()))
-	for i, f := range s.Fields() {
+	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(sc.Fields()))
+	for i, f := range sc.Fields() {
 		if i > 0 {
 			o.WriteString("\n")
 		}
 		fmt.Fprintf(o, "    - %v", f)
 	}
-	if meta := s.Metadata(); meta.Len() > 0 {
+	if meta := sc.Metadata(); meta.Len() > 0 {
 		fmt.Fprintf(o, "\n  metadata: %v", meta)
 	}
 	return o.String()

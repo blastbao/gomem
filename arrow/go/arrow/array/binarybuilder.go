@@ -31,11 +31,11 @@ const (
 
 // A BinaryBuilder is used to build a Binary array using the Append methods.
 type BinaryBuilder struct {
-	builder							// 用于管理 validity bitmap
+	builder // []bit ，存储第 i 个 value 是否为 null ，底层是 []byte
 
-	dtype   arrow.BinaryDataType	// 数据类型
-	offsets *int32BufferBuilder		// int32 类型 array
-	values  *byteBufferBuilder		// byte 类型 array
+	dtype   arrow.BinaryDataType // 数据类型
+	offsets *int32BufferBuilder  // []int32 ，存储第 i 个 value 的偏移量
+	values  *byteBufferBuilder   // []byte ，以铺平的方式存储 values
 }
 
 func NewBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryBuilder {
@@ -53,7 +53,6 @@ func NewBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryB
 // Release may be called simultaneously from multiple goroutines.
 func (b *BinaryBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
-
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
 		if b.nullBitmap != nil {
 			b.nullBitmap.Release()
@@ -72,9 +71,9 @@ func (b *BinaryBuilder) Release() {
 
 func (b *BinaryBuilder) Append(v []byte) {
 	b.Reserve(1)
-	// 添加到 `offsets` ，保存当前 value 的 offset 到 offsets 中
+	// 添加到 `offsets` ，保存当前 v 的 offset 到 offsets 中
 	b.appendNextOffset()
-	// 添加到 `values` ，保存当前 value
+	// 添加到 `values` ，保存当前 v
 	b.values.Append(v)
 	// 添加到 `nullBitmap`
 	b.UnsafeAppendBoolToBitmap(true)
@@ -86,7 +85,7 @@ func (b *BinaryBuilder) AppendString(v string) {
 
 func (b *BinaryBuilder) AppendNull() {
 	b.Reserve(1)
-	// 添加到 `offsets` ，保存当前 value 的 offset 到 offsets 中
+	// 添加到 `offsets` ，值得注意的是，即使是 null 元素也要为其保存一个无效的 offset ，但是 value 是不需要的。
 	b.appendNextOffset()
 	// 添加到 `nullBitmap`
 	b.UnsafeAppendBoolToBitmap(false)
@@ -120,32 +119,29 @@ func (b *BinaryBuilder) AppendStringValues(v []string, valid []bool) {
 	if len(v) != len(valid) && len(valid) != 0 {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
-
 	if len(v) == 0 {
 		return
 	}
-
 	b.Reserve(len(v))
 	for _, vv := range v {
 		b.appendNextOffset()
 		b.values.Append([]byte(vv))
 	}
-
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
 func (b *BinaryBuilder) Value(i int) []byte {
-	// 取第 i 个 value 的 offset => start
+	// 取第 i 个 value 的 offset
 	offsets := b.offsets.Values()
 	start := int(offsets[i])
-	// 取第 i + 1 个 value 的 offset => end
+	// 取第 i + 1 个 value 的 offset
 	var end int
 	if i == (b.length - 1) {
 		end = b.values.Len()
 	} else {
 		end = int(offsets[i+1])
 	}
-	// 提取 [start, end) 的 bytes
+	// 返回 [off(i), off(i+1)) 之间的 []bytes
 	return b.values.Bytes()[start:end]
 }
 
@@ -200,7 +196,9 @@ func (b *BinaryBuilder) NewBinaryArray() (a *Binary) {
 func (b *BinaryBuilder) newData() (data *Data) {
 	b.appendNextOffset()
 
-	offsets, values := b.offsets.Finish(), b.values.Finish()
+	offsets := b.offsets.Finish() // 取底层数组
+	values := b.values.Finish()   // 取底层数组
+
 	data = NewData(
 		b.dtype,
 		b.length,
@@ -213,13 +211,10 @@ func (b *BinaryBuilder) newData() (data *Data) {
 	if offsets != nil {
 		offsets.Release()
 	}
-
 	if values != nil {
 		values.Release()
 	}
-
 	b.builder.reset()
-
 	return
 }
 

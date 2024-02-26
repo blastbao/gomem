@@ -28,8 +28,8 @@ import (
 // A type which represents an immutable sequence of variable-length binary strings.
 type Binary struct {
 	array
-	valueOffsets []int32  // 第 i 条数据存储在 valueBytes 中的 offset 。
-	valueBytes   []byte
+	offsets []int32 // 第 i 条数据存储在 bytes 中的 offset 。
+	bytes   []byte
 }
 
 // NewBinaryData constructs a new Binary array from data.
@@ -46,7 +46,7 @@ func (a *Binary) Value(i int) []byte {
 		panic("arrow/array: index out of range")
 	}
 	idx := a.array.data.offset + i
-	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
+	return a.bytes[a.offsets[idx]:a.offsets[idx+1]]
 }
 
 // ValueString returns the string at index i without performing additional allocations.
@@ -61,7 +61,7 @@ func (a *Binary) ValueOffset(i int) int {
 	if i < 0 || i >= a.array.data.length {
 		panic("arrow/array: index out of range")
 	}
-	return int(a.valueOffsets[a.array.data.offset+i])
+	return int(a.offsets[a.array.data.offset+i])
 }
 
 func (a *Binary) ValueLen(i int) int {
@@ -69,19 +69,19 @@ func (a *Binary) ValueLen(i int) int {
 		panic("arrow/array: index out of range")
 	}
 	beg := a.array.data.offset + i
-	return int(a.valueOffsets[beg+1] - a.valueOffsets[beg])
+	return int(a.offsets[beg+1] - a.offsets[beg])
 }
 
 func (a *Binary) ValueOffsets() []int32 {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length + 1
-	return a.valueOffsets[beg:end]
+	return a.offsets[beg:end]
 }
 
 func (a *Binary) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	return a.valueBytes[a.valueOffsets[beg]:a.valueOffsets[end]]
+	return a.bytes[a.offsets[beg]:a.offsets[end]]
 }
 
 func (a *Binary) String() string {
@@ -111,13 +111,11 @@ func (a *Binary) setData(data *Data) {
 	}
 
 	a.array.setData(data)
-
 	if valueData := data.buffers[2]; valueData != nil {
-		a.valueBytes = valueData.Bytes()
+		a.bytes = valueData.Bytes()
 	}
-
 	if valueOffsets := data.buffers[1]; valueOffsets != nil {
-		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
+		a.offsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
 }
 

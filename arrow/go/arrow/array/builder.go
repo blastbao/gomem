@@ -76,12 +76,12 @@ type Builder interface {
 //
 // 用于管理 validity bitmap 。
 type builder struct {
-	refCount   int64				// 引用计数
-	mem        memory.Allocator		// 内存分配器
-	nullBitmap *memory.Buffer		// 空元素位图
-	nulls      int					// 空元素计数
-	length     int					// 长度
-	capacity   int					// 容量
+	refCount   int64            // 引用计数
+	mem        memory.Allocator // 内存分配器
+	nullBitmap *memory.Buffer   // 空元素位图
+	nulls      int              // 空元素计数
+	length     int              // 长度
+	capacity   int              // 容量
 }
 
 // Retain increases the reference count by 1.
@@ -104,7 +104,7 @@ func (b *builder) NullN() int { return b.nulls }
 // 接着调用 nullBitmap.Resize(toAlloc) 方法将 nullBitmap 缓冲区的大小调整为 toAlloc
 // 最后保存 capacity ，并调用 memory.Set(b.nullBitmap.Buf(), 0) 将 nullBitmap 缓冲区的所有字节初始化为 0
 func (b *builder) init(capacity int) {
-	toAlloc := bitutil.CeilByte(capacity) / 8
+	toAlloc := bitutil.CeilByte(capacity) / 8 // bits => bytes
 	b.nullBitmap = memory.NewResizableBuffer(b.mem)
 	b.nullBitmap.Resize(toAlloc)
 	b.capacity = capacity
@@ -116,7 +116,6 @@ func (b *builder) reset() {
 		b.nullBitmap.Release()
 		b.nullBitmap = nil
 	}
-
 	b.nulls = 0
 	b.length = 0
 	b.capacity = 0
@@ -131,7 +130,6 @@ func (b *builder) resize(newBits int, init func(int)) {
 		init(newBits)
 		return
 	}
-
 	newBytesN := bitutil.CeilByte(newBits) / 8
 	oldBytesN := b.nullBitmap.Len()
 	b.nullBitmap.Resize(newBytesN)
@@ -228,8 +226,6 @@ func (b *builder) UnsafeAppendBoolToBitmap(isValid bool) {
 }
 
 // [重要]
-//
-
 func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	// FIXME(sbinet): use a type switch on dtype instead?
 	switch dtype.ID() {

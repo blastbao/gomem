@@ -24,6 +24,8 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
+// bufferBuilder 可以认为是支持自动扩容的 []byte 数组。
+
 // A bufferBuilder provides common functionality for populating memory with a sequence of type-specific values.
 // Specialized implementations provide type-safe APIs for appending and accessing the memory.
 type bufferBuilder struct {
@@ -33,7 +35,7 @@ type bufferBuilder struct {
 	length   int
 	capacity int
 
-	bytes []byte	// bytes 是 buffer.Buf() 的引用
+	bytes []byte // bytes 是 buffer.Buf() 的引用
 }
 
 // Retain increases the reference count by 1.
@@ -47,7 +49,6 @@ func (b *bufferBuilder) Retain() {
 // Release may be called simultaneously from multiple goroutines.
 func (b *bufferBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
-
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
 		if b.buffer != nil {
 			b.buffer.Release()
@@ -115,12 +116,14 @@ func (b *bufferBuilder) Reset() {
 }
 
 // Finish TODO(sgc)
+//
+// 在数据构建完成后调用 Finish ，意味着当前的构建过程已经结束，可以将数据交给其他地方进行使用或处理。
 func (b *bufferBuilder) Finish() (buffer *memory.Buffer) {
 	if b.length > 0 {
 		b.buffer.ResizeNoShrink(b.length)
 	}
 	buffer = b.buffer
-	b.buffer = nil
+	b.buffer = nil // 将 b.buffer 设置为 nil ，意味着当前的缓冲区对象被“释放”了（实际上只是清除引用）；
 	b.Reset()
 	return
 }

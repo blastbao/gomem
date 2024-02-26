@@ -21,6 +21,16 @@ import (
 	"strconv"
 )
 
+// 根据 IEEE 754 标准，不同的指数位和尾数位的组合方式可以表示不同的数值区间。
+// 例如，
+//	当指数位全为 0 时，即 exp == 0，表示的是非正规化数，此时尾数 fc 相当于小数部分，计算公式为 2^(-14) * fc。
+// 	当指数位全为 1 时，即 exp == 0xff，表示特殊数或无穷数，此时尾数的值不重要。
+//	当指数位在 1~30 范围内时，表示正常的浮点数，此时尾数 fc 相当于小数部分，计算公式为 1 + fc * 2^(-10)。
+//
+// 根据指数计算出的对应值 res 为 0 或 1~30 时，将符号位、指数和尾数按位拼接到一起，构成一个 16 位的半精度浮点数，存储在 Num 类型的 bits 字段中。
+// 如果 res 超过了 30，表示溢出了半精度浮点数能够表示的最大值，此时将其置为 31，同时将尾数清零，得到的结果相当于无穷大。
+// 如果 res 小于 1，表示半精度浮点数能够表示的最小非规格化值，此时将其置为 0，同时将尾数清零，得到的结果相当于 0。
+
 // Num represents a half-precision floating point value (float16)
 // stored on 16 bits.
 //
@@ -32,11 +42,11 @@ type Num struct {
 // New creates a new half-precision floating point value from the provided
 // float32 value.
 func New(f float32) Num {
-	b := math.Float32bits(f)		// float32 => uint32
-	sn := uint16((b >> 31) & 0x1)	// 符号位 sn
-	exp := (b >> 23) & 0xff			// 指数 exp
+	b := math.Float32bits(f)      // float32 => uint32
+	sn := uint16((b >> 31) & 0x1) // 符号位 sn
+	exp := (b >> 23) & 0xff       // 指数 exp
 	res := int16(exp) - 127 + 15
-	fc := uint16(b>>13) & 0x3ff		// 尾数 fc
+	fc := uint16(b>>13) & 0x3ff // 尾数 fc
 	switch {
 	case exp == 0:
 		res = 0

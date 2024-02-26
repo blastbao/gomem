@@ -30,11 +30,19 @@ const (
 	stringArrayMaximumCapacity = math.MaxInt32
 )
 
+// String 是由 StringBuilder 生成的一个不可变对象，通过 Value(i) 来读取具体元素，不支持 Set/Append/Del 操作。
+//
+// String 底层包含若干不同类型的 array ，如 bitmap/offsets/values ，这些 array 的底层是 []byte ；
+//
+// 为了方便操作（引用计数、扩缩容），FB 将 []byte 封装为 memory.Buffer ；
+// 在 StringBuilder 构造 String 过程中，实际上是在操作这些 memory.Buffer ；
+// 在完成构造前将这些 Buffer 打包为 *Data ，通过 String.setData() 完成 String 的初始化。
+
 // String represents an immutable sequence of variable-length UTF-8 strings.
 type String struct {
 	array
-	offsets []int32
-	values  string
+	offsets []int32 // 每个字符串的起始位置和结束位置（偏移量）
+	values  string  // 所有字符串存储在一个连续的字节数组中，而每个字符串的位置由 offsets 数组标识
 }
 
 // NewStringData constructs a new String array from data.
@@ -52,7 +60,7 @@ func (a *String) Reset(data *Data) {
 
 // Value returns the slice at index i. This value should not be mutated.
 func (a *String) Value(i int) string {
-	i = i + a.array.data.offset
+	i = i + a.array.data.offset // 因为底层内存 []byte 基址可能不是以 64B 对齐的，需要偏移一些字节才能确保按 64B 对齐，这个偏移量就是 data.offset 。
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
 
@@ -78,9 +86,15 @@ func (a *String) String() string {
 }
 
 func (a *String) setData(data *Data) {
+	// 要求 data.buffers 至少包含 3 个元素：
+	// 	- 第一个缓冲区存储了空值位图。
+	//	- 第二个缓冲区存储了偏移量数组（offsets）。
+	//	- 第三个缓冲区存储了字符串的字节数据（values）。
 	if len(data.buffers) != 3 {
 		panic("arrow/array: len(data.buffers) != 3")
 	}
+
+	// nullBitmapBytes: array 内部会从 buffers[0] 来构造
 	a.array.setData(data)
 	// values: 把 buffers[2] 由 []byte => string
 	if vdata := data.buffers[2]; vdata != nil {

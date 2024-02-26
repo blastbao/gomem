@@ -123,11 +123,6 @@ func (b *Builder) StartObject(numfields int) {
 	b.objectEnd = b.Offset()
 }
 
-//
-//
-//
-//
-
 // WriteVtable serializes the vtable for the current object, if applicable.
 //
 // Before writing out the vtable, this checks pre-existing vtables for equality
@@ -259,10 +254,15 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 
 		// Write the offset to the found vtable in the
 		// already-allocated SOffsetT at the beginning of this object:
+		//
+		// 把 object 和 vtable 的 offset 偏移存入 object 的开头 4B 上。
 		WriteSOffsetT(b.Bytes[b.head:], SOffsetT(existingVtable)-SOffsetT(objectOffset))
 	}
 
+	// 重置 vtable ，以准备下个 object 的写入
 	b.vtable = b.vtable[:0]
+
+	// 返回当前 object 的 offset
 	return objectOffset
 }
 

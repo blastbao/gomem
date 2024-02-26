@@ -35,7 +35,12 @@ type Int64Builder struct {
 }
 
 func NewInt64Builder(mem memory.Allocator) *Int64Builder {
-	return &Int64Builder{builder: builder{refCount: 1, mem: mem}}
+	return &Int64Builder{
+		builder: builder{
+			refCount: 1,
+			mem: mem,
+		},
+	}
 }
 
 // Release decreases the reference count by 1.

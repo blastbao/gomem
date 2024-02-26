@@ -24,7 +24,7 @@ import (
 	"github.com/apache/arrow/go/arrow/internal/debug"
 )
 
-// Interface 表示一个不可变的值序列。
+// Interface 表示一个不可变的值序列，可以视作一个 Array 。
 //
 // A type which satisfies array.Interface represents an immutable sequence of values.
 type Interface interface {
@@ -71,10 +71,11 @@ const (
 	UnknownNullCount = -1
 )
 
+// array 作为一个内部结构，用来封装 *Data ，把 GC 和 null bit map 的公共逻辑从 Data 中剥离出去。
 type array struct {
-	refCount        int64	// 引用计数
-	data            *Data	//
-	nullBitmapBytes []byte	// 空值位图，底层引用于 data.buffers[0]
+	refCount        int64  // 引用计数
+	data            *Data  //
+	nullBitmapBytes []byte // 空值位图，底层引用于 data.buffers[0]
 }
 
 // Retain increases the reference count by 1.

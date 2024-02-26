@@ -18,6 +18,7 @@ package memory
 
 import "unsafe"
 
+// 向上取整
 func roundToPowerOf2(v, round int) int {
 	forceCarry := round - 1
 	truncateMask := ^forceCarry

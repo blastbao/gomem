@@ -36,7 +36,7 @@ func NewBooleanBuilder(mem memory.Allocator) *BooleanBuilder {
 	return &BooleanBuilder{
 		builder: builder{
 			refCount: 1,
-			mem: mem,
+			mem:      mem,
 		},
 	}
 }
@@ -109,7 +109,6 @@ func (b *BooleanBuilder) AppendValues(v []bool, valid []bool) {
 func (b *BooleanBuilder) init(capacity int) {
 	// 初始化底层 builder ，用于管理 nullBitmap 。
 	b.builder.init(capacity)
-
 	// 创建 data buffer ，用于存储数据
 	b.data = memory.NewResizableBuffer(b.mem)
 	// 计算 n 个 boolean 需要占用多少个 bytes
@@ -134,7 +133,6 @@ func (b *BooleanBuilder) Resize(n int) {
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
-
 	if b.capacity == 0 {
 		b.init(n)
 	} else {

@@ -249,7 +249,8 @@ func (b *ListBuilder) newData() (data *Data) {
 	}
 
 	data = NewData(
-		arrow.ListOf(b.etype), b.length,
+		arrow.ListOf(b.etype),
+		b.length,
 		[]*memory.Buffer{
 			b.nullBitmap,
 			offsets,

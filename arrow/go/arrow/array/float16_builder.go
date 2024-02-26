@@ -152,7 +152,14 @@ func (b *Float16Builder) newData() (data *Data) {
 		// trim buffers
 		b.data.Resize(bytesRequired)
 	}
-	data = NewData(arrow.FixedWidthTypes.Float16, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
+	data = NewData(
+		arrow.FixedWidthTypes.Float16,
+		b.length,
+		[]*memory.Buffer{b.nullBitmap, b.data},
+		nil,
+		b.nulls,
+		0,
+	)
 	b.reset()
 
 	if b.data != nil {
@@ -160,6 +167,5 @@ func (b *Float16Builder) newData() (data *Data) {
 		b.data = nil
 		b.rawData = nil
 	}
-
 	return
 }

@@ -10,10 +10,6 @@ package flatbuffers
 // 此外，对于 table 对象，FlatBuffers 提供前向/后向兼容性和 optional 字段，以支持大多数格式的演变。
 // 除了解析效率以外，二进制格式还带来了另一个优势，数据的二进制表示通常更具有效率。
 // 我们可以使用 4 字节的 UInt 而不是 10 个字符来存储 10 位数字的整数。
-//
-// FlatBuffers 对序列化基本使用原则：
-//	小端模式。FlatBuffers 对各种基本数据的存储都是按照小端模式来进行的，因为这种模式目前和大部分处理器的存储模式是一致的，可以加快数据读写的数据。
-//	写入数据方向和读取数据方向不同。
 
 // FlatBuffers 向 ByteBuffer 中写入数据的顺序是从 ByteBuffer 的尾部向头部填充，由于这种增长方向和 ByteBuffer 默认的增长方向不同，
 // 因此 FlatBuffers 在向 ByteBuffer 中写入数据的时候就不能依赖 ByteBuffer 的 position 来标记有效数据位置，

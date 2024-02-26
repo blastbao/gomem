@@ -20,9 +20,10 @@ type GoAllocator struct{}
 
 func NewGoAllocator() *GoAllocator { return &GoAllocator{} }
 
-
 // Allocate 方法用于分配指定大小的内存，并确保内存地址是 64 字节对齐的。
 // 如果分配的内存地址不是 64 字节对齐的，会在内存前面添加一些填充以实现对齐。
+//
+// 需要注意的是，Allocate 返回 []byte 底层 cap 和 len 是相同的。
 func (a *GoAllocator) Allocate(size int) []byte {
 	buf := make([]byte, size+alignment) // padding for 64-byte alignment
 	addr := int(addressOf(buf))
@@ -41,6 +42,7 @@ func (a *GoAllocator) Reallocate(size int, b []byte) []byte {
 		return b
 	}
 
+	// 这里返回的 newBuf 是一个 []byte ，它的 len/cap 是相同的，等于 size 。
 	newBuf := a.Allocate(size)
 	copy(newBuf, b)
 	return newBuf

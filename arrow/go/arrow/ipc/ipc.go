@@ -60,8 +60,8 @@ type ReadAtSeeker interface {
 }
 
 type config struct {
-	alloc  memory.Allocator
-	schema *arrow.Schema
+	alloc  memory.Allocator // 内存分配器
+	schema *arrow.Schema    //
 	footer struct {
 		offset int64
 	}

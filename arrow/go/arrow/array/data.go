@@ -29,7 +29,7 @@ type Data struct {
 	refCount  int64
 	dtype     arrow.DataType
 	nulls     int
-	offset    int
+	offset    int // 底层内存 []byte 基址可能不是以 64B 对齐的，需要偏移一些字节才能确保按 64B 对齐，这个偏移量就是 data.offset 。
 	length    int
 	buffers   []*memory.Buffer // TODO(sgc): should this be an interface?
 	childData []*Data          // TODO(sgc): managed by ListArray, StructArray and UnionArray types
@@ -37,30 +37,26 @@ type Data struct {
 
 // NewData creates a new Data.
 func NewData(
-	dtype arrow.DataType,		// 元素类型
-	length int,					// 元素数目
-	buffers []*memory.Buffer,	//
-	childData []*Data,			//
-	nulls,						// 空元素计数
-	offset int,					//
+	typ arrow.DataType,
+	length int,
+	buffers []*memory.Buffer,
+	childData []*Data,
+	nulls,
+	offset int,
 ) *Data {
-
-	// 更新引用计数 +1
 	for _, b := range buffers {
 		if b != nil {
 			b.Retain()
 		}
 	}
-
 	for _, child := range childData {
 		if child != nil {
 			child.Retain()
 		}
 	}
-
 	return &Data{
 		refCount:  1,
-		dtype:     dtype,
+		dtype:     typ,
 		nulls:     nulls,
 		length:    length,
 		offset:    offset,
@@ -70,7 +66,7 @@ func NewData(
 }
 
 // Reset sets the Data for re-use.
-func (d *Data) Reset(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls, offset int) {
+func (d *Data) Reset(typ arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls, offset int) {
 	// Retain new buffers before releasing existing buffers in-case they're the same ones to prevent accidental premature
 	// release.
 	for _, b := range buffers {
@@ -98,8 +94,7 @@ func (d *Data) Reset(dtype arrow.DataType, length int, buffers []*memory.Buffer,
 		}
 	}
 	d.childData = childData
-
-	d.dtype = dtype
+	d.dtype = typ
 	d.length = length
 	d.nulls = nulls
 	d.offset = offset

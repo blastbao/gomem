@@ -24,6 +24,9 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
+
+// int32BufferBuilder 基于 bufferBuilder ，可被认为是支持自动扩容的 []int32 数组
+
 type int32BufferBuilder struct {
 	bufferBuilder
 }
