@@ -151,11 +151,11 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 	// Prepend a zero scalar to the object. Later in this function we'll
 	// write an offset here that points to the object's vtable:
 	//
-	// Object 的开头是 4B 的 SOffsetT 偏移量，指向关联的 vtable 。
+	// 每个 Object 的开头是 4B 的 SOffsetT 偏移量，指向关联的 vtable 。
 	// 这里属于预写入(0值)，后面在写完 vtable 后会覆盖写入真正的偏移量。
 	b.PrependSOffsetT(0)
 
-	objectOffset := b.Offset() // 当前 object 的 offset ，
+	objectOffset := b.Offset() // 当前 object 的 offset ，即当前对象相对于 bytebuffer 结尾的偏移
 	existingVtable := UOffsetT(0)
 
 	// Trim vtable of trailing zeroes.
@@ -176,17 +176,28 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 	// 可以查看 BenchmarkVtableDeduplication 的测试结果，通过索引指向相同的 vtable，而不是新建一个，这种做法可以提高 30% 性能；
 	for i := len(b.vtables) - 1; i >= 0; i-- {
 		// Find the other vtable, which is associated with `i`:
-		// 选定一个 vtable
+		// 选定一个 vtable ，这里 vtables[i] 存储着第 i 个 vtable 的 offset
 		vt2Offset := b.vtables[i]
+		// 定位到当前 vtable 的 start position ，offset 是从后往前、position 是从前往后。
 		vt2Start := len(b.Bytes) - int(vt2Offset)
+		// vtable 是由 2 + N 个 VOffsetT 构成，第 0 个 VOffsetT 是 vtable 的字节长度
 		vt2Len := GetVOffsetT(b.Bytes[vt2Start:])
 
+		// vtable 是由 2 + N 个 VOffsetT 构成，前 2 个为 meta fields，占 2 * 2 共 4 字节
 		metadata := VtableMetadataFields * SizeVOffsetT
+		// 定位到当前 vtable 的 end position
 		vt2End := vt2Start + int(vt2Len)
+
+		// 去除 2 个 meta fields ，比较其余部分
 		vt2 := b.Bytes[vt2Start+metadata : vt2End]
 
 		// Compare the other vtable to the one under consideration.
 		// If they are equal, store the offset and break:
+		//
+		// [重要]
+		// 值得注意的是，在 object 的写入过程中，vtable 中存储的是 field 在 buffer 中的绝对 offset ；
+		// 在完成 object 的写入之后，需要将 vtable 中的绝对 offset 修正为相对 object offset 的相对位置；
+		// 所以，这里比较过程中，需要通过 object offset 和 vtable 才能同已完成写入的 vtable 的对比。
 		if vtableEqual(b.vtable, objectOffset, vt2) {
 			existingVtable = vt2Offset
 			break
@@ -198,6 +209,8 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 
 		// Write out the current vtable in reverse , because
 		// serialization occurs in last-first order:
+		//
+		// 从后向前，逐个写入 vtable 中每个字段的 offset ，这里会将绝对 offset 修改为相对 object offset 的相对 offset 。
 		for i := len(b.vtable) - 1; i >= 0; i-- {
 			var off UOffsetT
 			if b.vtable[i] != 0 {
@@ -210,27 +223,38 @@ func (b *Builder) WriteVtable() (n UOffsetT) {
 		}
 
 		// The two metadata fields are written last.
+		// 写入两个 meta fields
 
 		// First, store the object bytesize:
+		// 计算 object 的大小，并写入 buffer
 		objectSize := objectOffset - b.objectEnd
 		b.PrependVOffsetT(VOffsetT(objectSize))
 
 		// Second, store the vtable bytesize:
+		// 计算 vtable 的大小，并写入 buffer
 		vBytes := (len(b.vtable) + VtableMetadataFields) * SizeVOffsetT
 		b.PrependVOffsetT(VOffsetT(vBytes))
 
 		// Next, write the offset to the new vtable in the
 		// already-allocated SOffsetT at the beginning of this object:
+		//
+		// 每个 Object 的开头是 4B 的 SOffsetT 偏移量，指向关联的 vtable 。
+		// 这里先定位到 object 的 start pos ，然后计算 object 和其 vtable 的 offset 偏移，最后写入到 start pos 开始的 4B 上。
 		objectStart := SOffsetT(len(b.Bytes)) - SOffsetT(objectOffset)
 		WriteSOffsetT(b.Bytes[objectStart:], SOffsetT(b.Offset())-SOffsetT(objectOffset))
 
-		// Finally, store this vtable in memory for future
-		// deduplication:
+		// Finally, store this vtable in memory for future deduplication:
+		//
+		// 保存当前 vtable 的 offset 到 vtables 中，便于后续查找去重。
 		b.vtables = append(b.vtables, b.Offset())
+
 	} else {
 		// Found a duplicate vtable.
 
+		// 每个 Object 的开头是 4B 的 SOffsetT 偏移量，指向关联的 vtable 。
 		objectStart := SOffsetT(len(b.Bytes)) - SOffsetT(objectOffset)
+
+		// ??? 这里没看懂为啥需要更新 b.head ，它不本来就指向 objectStart 吗？
 		b.head = UOffsetT(objectStart)
 
 		// Write the offset to the found vtable in the
