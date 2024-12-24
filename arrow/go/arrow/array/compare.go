@@ -32,7 +32,6 @@ func RecordEqual(left, right Record) bool {
 	case left.NumRows() != right.NumRows():
 		return false
 	}
-
 	for i := range left.Columns() {
 		lc := left.Column(i)
 		rc := right.Column(i)
@@ -52,9 +51,7 @@ func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
 	case left.NumRows() != right.NumRows():
 		return false
 	}
-
 	opt := newEqualOption(opts...)
-
 	for i := range left.Columns() {
 		lc := left.Column(i)
 		rc := right.Column(i)

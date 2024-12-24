@@ -29,7 +29,7 @@ import (
 type Binary struct {
 	array
 	offsets []int32 // 第 i 条数据存储在 bytes 中的 offset 。
-	bytes   []byte
+	bytes   []byte  // 铺平存储每条数据
 }
 
 // NewBinaryData constructs a new Binary array from data.

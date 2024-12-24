@@ -145,12 +145,6 @@ func (a *array) Offset() int {
 	return a.data.Offset()
 }
 
-type arrayConstructorFn func(*Data) Interface
-
-var (
-	makeArrayFn [32]arrayConstructorFn
-)
-
 func unsupportedArrayType(data *Data) Interface {
 	panic("unsupported data type: " + data.dtype.ID().String())
 }
@@ -158,6 +152,12 @@ func unsupportedArrayType(data *Data) Interface {
 func invalidDataType(data *Data) Interface {
 	panic("invalid data type: " + data.dtype.ID().String())
 }
+
+type arrayConstructorFn func(*Data) Interface
+
+var (
+	makeArrayFn [32]arrayConstructorFn
+)
 
 // MakeFromData constructs a strongly-typed array instance from generic Data.
 func MakeFromData(data *Data) Interface {

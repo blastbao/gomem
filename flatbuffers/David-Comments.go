@@ -13,21 +13,34 @@ package flatbuffers
 //	field3 未设置（默认值）。
 //
 // 二进制数据布局：
-// 1. vtable 存储
+//
+// 0. FlatBuffer 二进制数据
+//	buf := []byte{
+//		// vtable
+//		0x0A, 0x00, 0x10, 0x00, 0x04, 0x00, 0x08, 0x00, 0x00, 0x00,
+//		// table
+//		0x04, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x06, 0x00,
+//		// string "hello"
+//		'h', 'e', 'l', 'l', 'o', 0x00,
+//	}
+//  第一个字节 0x0A 存储的 vtable 大小 ，也即 table 区域的基址；
+//
+// 1. vtable
 //	[0x0A] [0x10] [0x04] [0x08] [0x00]
 // 其中：
 //	0x0A (vtable_size=10)：vtable 大小。
 //	0x10 (object_size=16)：MyTable 对象大小。
-//	0x04：field1 相对于表起始地址的偏移。
-//	0x08：field2 相对于表起始地址的偏移。
-//	0x00：field3 未设置。
+//	0x04：field1 相对于表区域基址的偏移。
+//	0x08：field2 相对于表区域基址的偏移。
+//	0x00：field3 相对于表区域基址的偏移，这里未设置代表字段为空。
 //
-// 2. 表数据存储
+// 2. 表数据
 //	[0x04 0x00] [0x2A 0x00 0x00 0x00] [0x08 0x00] ["hello"] ...
 // 其中：
 //	0x04 0x00：指向 vtable 的偏移。
 //	0x2A (42)：field1 数据。
 //	0x08 0x00：field2 的偏移指针，指向 "hello" 字符串数据
+//  ["hello"]：字符串 "hello" 的内容，实际上是 []byte ，这里简化展示
 //
 // 字段访问：
 //	访问 field1
@@ -49,17 +62,29 @@ package flatbuffers
 // 示例代码：
 //
 //	// 假设 `buf` 是 FlatBuffer 的字节数组
-//	tableOffset := flatbuffers.GetUOffsetT(buf[0:4]) // 获取表起始偏移
-//	vtableOffset := tableOffset - flatbuffers.GetInt32(buf[tableOffset:tableOffset+4])
+//	tableOffset := flatbuffers.GetUOffsetT(buf[0:4]) // 第一个字节存储了 vtable 大小，也即表区域基址
+//	vtableOffset := tableOffset - flatbuffers.GetInt32(buf[tableOffset:tableOffset+4]) // 表区域首个 4B 存储 vtable 的相对位置
 //
-//	// 获取字段 1 偏移
-//	field1Offset := vtableOffset + 4
-//	// 获取字段 1 数据
-//	field1Data := flatbuffers.GetInt32(buf[tableOffset+field1Offset:])
+// 	// 读取 field1
+//	field1Offset := flatbuffers.GetInt16(buf[vtableOffset+4:])
+//	field1Value := flatbuffers.GetInt32(buf[tableOffset+int(field1Offset):])
+//	fmt.Printf("field1: %d\n", field1Value)
 //
-//	field2Offset := vtableOffset + 8
-//	field2Pointer := flatbuffers.GetUOffsetT(buf[tableOffset+field2Offset:])
-//	field2String := flatbuffers.String(buf[field2Pointer:])
+// 	// 读取 field2
+//	field2Offset := flatbuffers.GetInt16(buf[vtableOffset+6:])
+//	field2Pointer := flatbuffers.GetUOffsetT(buf[tableOffset+int(field2Offset):])
+//	field2Start := tableOffset + int(field2Offset) + int(field2Pointer)
+//	field2Value := flatbuffers.String(buf[field2Start:])
+//	fmt.Printf("field2: %s\n", field2Value)
+//
+//	// 读取 field3
+//	field3Offset := flatbuffers.GetInt16(buf[vtableOffset+8:])
+//	if field3Offset == 0 {
+//		fmt.Printf("field3: default value\n")
+//	} else {
+//		field3Value := flatbuffers.GetInt32(buf[tableOffset+int(field3Offset):])
+//		fmt.Printf("field3: %d\n", field3Value)
+//	}
 
 // 原理一
 //
